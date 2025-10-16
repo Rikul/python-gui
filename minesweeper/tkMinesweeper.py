@@ -25,6 +25,10 @@ class Minesweeper:
         HelpMenu.add_command(label="About", command=self.ShowAbout)
         self.MenuBar.add_cascade(label="Help", menu=HelpMenu)
 
+        # Emoji icons for mines and flags
+        self.MineIcon = "💣"
+        self.FlagIcon = "🚩"
+
         # Create the grid
         self.GridFrame = tk.Frame(self.Master)
         self.GridFrame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
@@ -126,7 +130,9 @@ class Minesweeper:
         """
         Button = self.Buttons[Row][Col]
         if Button['state'] == tk.NORMAL:
-            Button.config(bg='black', state=tk.DISABLED)
+            Button.config(text=self.FlagIcon, bg='lightyellow', state=tk.DISABLED)
+        elif Button['state'] == tk.DISABLED and Button['text'] == self.FlagIcon:
+            Button.config(text='', bg='lightblue', state=tk.NORMAL)
 
     def ShowMine(self):
         """
@@ -134,7 +140,7 @@ class Minesweeper:
         """
         for Index in self.Mines:
             Row, Col = divmod(Index, 10)
-            self.Buttons[Row][Col].config(text='M', bg='red', state=tk.DISABLED)
+            self.Buttons[Row][Col].config(text=self.MineIcon, bg='red', state=tk.DISABLED)
 
     def NewGame(self):
         """
