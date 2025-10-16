@@ -25,12 +25,17 @@ class Minesweeper:
         HelpMenu.add_command(label="About", command=self.ShowAbout)
         self.MenuBar.add_cascade(label="Help", menu=HelpMenu)
 
+        # Emoji icons for mines and flags
+        self.MineIcon = "💣"
+        self.FlagIcon = "🚩"
+
         # Create the grid
         self.GridFrame = tk.Frame(self.Master)
         self.GridFrame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         
         self.Buttons = []
         self.Mines = set()
+        self.Flags = set()
         self.CreateGrid()
 
     def CreateGrid(self):
@@ -87,6 +92,8 @@ class Minesweeper:
         if Row < 0 or Row >= 10 or Col < 0 or Col >= 10:
             return  # Out of bounds
         Button = self.Buttons[Row][Col]
+        if (Row, Col) in self.Flags:
+            return
         if Button['state'] == tk.DISABLED:
             return  # Already revealed or marked
 
@@ -109,6 +116,8 @@ class Minesweeper:
         Col (int): The column index of the clicked button.
         """
         Index = Row * 10 + Col
+        if (Row, Col) in self.Flags:
+            return
         if Index in self.Mines:
             self.ShowMine()
             messagebox.showinfo("Game Over", "You clicked on a mine!")
@@ -125,8 +134,19 @@ class Minesweeper:
         Col (int): The column index of the button.
         """
         Button = self.Buttons[Row][Col]
-        if Button['state'] == tk.NORMAL:
-            Button.config(bg='black', state=tk.DISABLED)
+        if Button['state'] != tk.NORMAL and Button['text'] != self.FlagIcon:
+            return
+
+        if (Row, Col) in self.Flags:
+            self.Flags.remove((Row, Col))
+            if Button['state'] == tk.DISABLED:
+                return
+            Button.config(text='', bg='lightblue')
+        else:
+            if Button['state'] == tk.DISABLED:
+                return
+            self.Flags.add((Row, Col))
+            Button.config(text=self.FlagIcon, bg='lightyellow')
 
     def ShowMine(self):
         """
@@ -134,13 +154,14 @@ class Minesweeper:
         """
         for Index in self.Mines:
             Row, Col = divmod(Index, 10)
-            self.Buttons[Row][Col].config(text='M', bg='red', state=tk.DISABLED)
+            self.Buttons[Row][Col].config(text=self.MineIcon, bg='red', state=tk.DISABLED)
 
     def NewGame(self):
         """
         Start a new game by resetting the board and placing new mines.
         """
         self.Mines.clear()
+        self.Flags.clear()
         for Row in self.Buttons:
             for Button in Row:
                 Button.config(text='', bg='lightblue', state=tk.NORMAL)
