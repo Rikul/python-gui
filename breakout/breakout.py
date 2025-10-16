@@ -15,6 +15,12 @@ YELLOW = (255, 255, 0)
 BLOCK_WIDTH, BLOCK_HEIGHT = 100, 30
 BALL_RADIUS = 10
 PADDLE_WIDTH, PADDLE_HEIGHT = 100, 10
+BRICK_COLUMNS = 7
+INITIAL_BRICK_ROWS = 5
+BRICK_GAP = 4
+BRICK_MARGIN_X = 25
+BRICK_MARGIN_Y = 25
+ROW_ADD_INTERVAL = 30000  # 30 seconds in milliseconds
 
 # Create the screen
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -28,26 +34,64 @@ ball_dx, ball_dy = 0, 0  # Ball starts stationary
 lives = 3
 score = 0
 bricks = []
+rows_created = 0
 
 # Create bricks with color pattern
 colors = [GREEN, BLUE, YELLOW]
-for j in range(5):  # Number of rows
-    for i in range(7):  # Number of columns
-        brick_color = colors[j % len(colors)]
-        bricks.append((pygame.Rect(i * (BLOCK_WIDTH + 10) + 25, j * (BLOCK_HEIGHT + 10) + 25, BLOCK_WIDTH, BLOCK_HEIGHT), brick_color))
+
+
+def add_brick_row(initializing=False):
+    """Add a new row of bricks. Existing bricks are shifted down unless initializing."""
+
+    global bricks, rows_created
+
+    row_index = rows_created
+    if not initializing:
+        for brick, _ in bricks:
+            brick.y += BLOCK_HEIGHT + BRICK_GAP
+        y_position = BRICK_MARGIN_Y
+    else:
+        y_position = BRICK_MARGIN_Y + row_index * (BLOCK_HEIGHT + BRICK_GAP)
+
+    row_color = colors[row_index % len(colors)]
+    for i in range(BRICK_COLUMNS):
+        x_position = BRICK_MARGIN_X + i * (BLOCK_WIDTH + BRICK_GAP)
+        brick_rect = pygame.Rect(x_position, y_position, BLOCK_WIDTH, BLOCK_HEIGHT)
+        bricks.append((brick_rect, row_color))
+
+    rows_created += 1
+
+
+def initialize_bricks():
+    """Populate the starting bricks."""
+
+    global bricks, rows_created
+    bricks = []
+    rows_created = 0
+    for _ in range(INITIAL_BRICK_ROWS):
+        add_brick_row(initializing=True)
 
 # Font
 font = pygame.font.Font(None, 36)
 
+# Track when to add additional brick rows
+last_row_add_time = pygame.time.get_ticks()
+
+
 # Game loop
 def game_loop():
-    global paddle_x, ball_x, ball_y, ball_dx, ball_dy, score, lives, bricks
+    global paddle_x, ball_x, ball_y, ball_dx, ball_dy, score, lives, bricks, last_row_add_time
 
     # Flag to control ball movement
     ball_moving = False
 
     while True:
         screen.fill(BLACK)
+
+        current_time = pygame.time.get_ticks()
+        if current_time - last_row_add_time >= ROW_ADD_INTERVAL:
+            add_brick_row()
+            last_row_add_time = current_time
         
         # Event handling
         for event in pygame.event.get():
@@ -85,6 +129,7 @@ def game_loop():
         if ball_y >= HEIGHT:
             lives -= 1
             if lives == 0:
+                ball_moving = False
                 game_over("GAME OVER")
                 continue
 
@@ -122,6 +167,7 @@ def game_loop():
 
         # Check win condition
         if not bricks:
+            ball_moving = False
             game_over("YOU WIN")
             continue
 
@@ -129,7 +175,7 @@ def game_loop():
         pygame.time.delay(30)
 
 def game_over(message):
-    global lives, score, bricks
+    global lives, score, bricks, paddle_x, ball_x, ball_y, ball_dx, ball_dy, rows_created, last_row_add_time
     screen.fill(BLACK)
     game_over_text = font.render(message, True, WHITE)
     text_rect = game_over_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
@@ -141,11 +187,12 @@ def game_over(message):
     # Reset game state
     lives = 3
     score = 0
-    bricks = []
-    for j in range(5):  # Number of rows
-        for i in range(7):  # Number of columns
-            brick_color = colors[j % len(colors)]
-            bricks.append((pygame.Rect(i * (BLOCK_WIDTH + 10) + 25, j * (BLOCK_HEIGHT + 10) + 25, BLOCK_WIDTH, BLOCK_HEIGHT), brick_color))
+    paddle_x = (WIDTH - PADDLE_WIDTH) // 2
+    ball_x, ball_y = WIDTH // 2, HEIGHT // 2
+    ball_dx = ball_dy = 0
+    initialize_bricks()
+    last_row_add_time = pygame.time.get_ticks()
 
 # Start the game
+initialize_bricks()
 game_loop()
