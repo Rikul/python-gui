@@ -3,10 +3,12 @@ from tkinter import messagebox, font
 import random
 
 class Minesweeper:
-    def __init__(self, Master):
+    def __init__(self, Master, grid_size=15, num_mines=25):
         self.Master = Master
-        self.Master.title("Minesweeper")
-        self.Master.geometry("500x500")
+        self.grid_size = grid_size
+        self.num_mines = num_mines
+        self.Master.title(f"Minesweeper")
+        # Remove fixed geometry to allow automatic sizing
         self.Master.resizable(False, False)
         
         # Create the menu bar
@@ -31,7 +33,7 @@ class Minesweeper:
 
         # Create the grid
         self.GridFrame = tk.Frame(self.Master)
-        self.GridFrame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        self.GridFrame.pack()
         
         self.Buttons = []
         self.Mines = set()
@@ -40,27 +42,34 @@ class Minesweeper:
 
     def CreateGrid(self):
         """
-        Create a 10x10 grid of buttons for the game board.
+        Create a grid of buttons for the game board.
         """
-        for Row in range(10):
+        for Row in range(self.grid_size):
             ButtonRow = []
-            for Col in range(10):
-                ButtonFont = font.Font(weight="bold", size=10)
+            for Col in range(self.grid_size):
+                ButtonFont = font.Font(family="system", weight="bold", size=16)
                 Button = tk.Button(
-                    self.GridFrame, font=ButtonFont, bg='lightblue', width=4, height=2
+                    self.GridFrame, font=ButtonFont, bg='lightblue', width=4, height=2, padx=0, pady=0
                 )
                 Button.bind('<Button-1>', lambda event, r=Row, c=Col: self.OnLeftClick(r, c))
                 Button.bind('<Button-3>', lambda event, r=Row, c=Col: self.OnRightClick(r, c))
                 Button.grid(row=Row, column=Col)
                 ButtonRow.append(Button)
+
             self.Buttons.append(ButtonRow)
         self.PlaceMines()
+        
+        # Size window to fit the grid
+        self.Master.update_idletasks()  # Let tkinter calculate sizes
+        width = self.GridFrame.winfo_reqwidth()
+        height = self.GridFrame.winfo_reqheight()
+        self.Master.geometry(f"{width}x{height}")
 
     def PlaceMines(self):
         """
-        Create a set of 10 random mine positions on the grid.
+        Create a set of random mine positions on the grid.
         """
-        self.Mines = set(random.sample(range(100), 10))  # Choose 10 random positions for mines
+        self.Mines = set(random.sample(range(self.grid_size * self.grid_size), self.num_mines))  # Choose random positions for mines
 
     def CountAdjacentMines(self, Row, Col):
         """
@@ -76,8 +85,8 @@ class Minesweeper:
         Count = 0
         for r in range(Row-1, Row+2):
             for c in range(Col-1, Col+2):
-                if 0 <= r < 10 and 0 <= c < 10:  # Stay within bounds
-                    if (r * 10 + c) in self.Mines:
+                if 0 <= r < self.grid_size and 0 <= c < self.grid_size:  # Stay within bounds
+                    if (r * self.grid_size + c) in self.Mines:
                         Count += 1
         return Count
 
@@ -89,7 +98,7 @@ class Minesweeper:
         Row (int): The row index of the tile.
         Col (int): The column index of the tile.
         """
-        if Row < 0 or Row >= 10 or Col < 0 or Col >= 10:
+        if Row < 0 or Row >= self.grid_size or Col < 0 or Col >= self.grid_size:
             return  # Out of bounds
         Button = self.Buttons[Row][Col]
         if (Row, Col) in self.Flags:
@@ -115,7 +124,7 @@ class Minesweeper:
         Row (int): The row index of the clicked button.
         Col (int): The column index of the clicked button.
         """
-        Index = Row * 10 + Col
+        Index = Row * self.grid_size + Col
         if (Row, Col) in self.Flags:
             return
         if Index in self.Mines:
@@ -153,8 +162,8 @@ class Minesweeper:
         Display all mines on the board.
         """
         for Index in self.Mines:
-            Row, Col = divmod(Index, 10)
-            self.Buttons[Row][Col].config(text=self.MineIcon, bg='red', state=tk.DISABLED)
+            Row, Col = divmod(Index, self.grid_size)
+            self.Buttons[Row][Col].config(text=self.MineIcon, bg='yellow', state=tk.DISABLED)
 
     def NewGame(self):
         """
@@ -171,7 +180,7 @@ class Minesweeper:
         """
         Display the 'About' message box.
         """
-        messagebox.showinfo("About", "Minesweeper Game\nCreated with Tkinter")
+        messagebox.showinfo("About", f"Minesweeper Game\nGrid: {self.grid_size}x{self.grid_size}\nMines: {self.num_mines}\nCreated with Tkinter")
 
 if __name__ == "__main__":
     Root = tk.Tk()
