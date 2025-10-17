@@ -7,10 +7,11 @@ class Minesweeper:
         self.Master = Master
         self.grid_size = grid_size
         self.num_mines = num_mines
-        self.Master.title(f"Minesweeper")
+        self.Master.title(f"tkMinesweeper - {self.grid_size}x{self.grid_size}")
         # Remove fixed geometry to allow automatic sizing
         self.Master.resizable(False, False)
-        
+        self.Master.withdraw() # hide the window initially
+
         # Create the menu bar
         self.MenuBar = tk.Menu(self.Master)
         self.Master.config(menu=self.MenuBar)
@@ -18,6 +19,7 @@ class Minesweeper:
         # Add "Game" menu
         GameMenu = tk.Menu(self.MenuBar, tearoff=0)
         GameMenu.add_command(label="New Game", command=self.NewGame)
+        GameMenu.add_command(label="Options", command=self.ShowOptions)
         GameMenu.add_separator()
         GameMenu.add_command(label="Exit", command=self.Master.quit)
         self.MenuBar.add_cascade(label="Game", menu=GameMenu)
@@ -44,12 +46,19 @@ class Minesweeper:
         """
         Create a grid of buttons for the game board.
         """
+
+        button_width = 5
+        button_height = 2
+        if self.grid_size != 15:
+            button_width = 3
+            button_height = 1
+
         for Row in range(self.grid_size):
             ButtonRow = []
             for Col in range(self.grid_size):
-                ButtonFont = font.Font(family="system", weight="bold", size=16)
+                ButtonFont = font.Font(family="system", weight=font.BOLD, size=16)
                 Button = tk.Button(
-                    self.GridFrame, font=ButtonFont, bg='lightblue', width=4, height=2, padx=0, pady=0
+                    self.GridFrame, font=ButtonFont, bg='lightblue', width=button_width, height=button_height
                 )
                 Button.bind('<Button-1>', lambda event, r=Row, c=Col: self.OnLeftClick(r, c))
                 Button.bind('<Button-3>', lambda event, r=Row, c=Col: self.OnRightClick(r, c))
@@ -63,7 +72,13 @@ class Minesweeper:
         self.Master.update_idletasks()  # Let tkinter calculate sizes
         width = self.GridFrame.winfo_reqwidth()
         height = self.GridFrame.winfo_reqheight()
-        self.Master.geometry(f"{width}x{height}")
+
+        screen_width = self.Master.winfo_screenwidth()
+        screen_height = self.Master.winfo_screenheight()
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        self.Master.geometry(f"{width}x{height}+{x}+{y}")
+        self.Master.deiconify()  # Show the window after sizing and centering
 
     def PlaceMines(self):
         """
@@ -181,6 +196,87 @@ class Minesweeper:
         Display the 'About' message box.
         """
         messagebox.showinfo("About", f"Minesweeper Game\nGrid: {self.grid_size}x{self.grid_size}\nMines: {self.num_mines}\nCreated with Tkinter")
+
+    def ShowOptions(self):
+        """
+        Display the options dialog for selecting map size and difficulty.
+        """
+        options_window = tk.Toplevel(self.Master)
+        options_window.title("Options")
+        options_window.resizable(False, False)
+
+        # Map Size selection
+        size_label = tk.Label(options_window, text="Map Size:")
+        size_label.pack(pady=5)
+
+        self.size_var = tk.StringVar(value="Normal" if self.grid_size == 15 else "Large")
+        normal_rb = tk.Radiobutton(options_window, text="Normal (15x15)", variable=self.size_var, value="Normal")
+        normal_rb.pack()
+        large_rb = tk.Radiobutton(options_window, text="Large (25x25)", variable=self.size_var, value="Large")
+        large_rb.pack()
+
+        # Difficulty selection
+        diff_label = tk.Label(options_window, text="Difficulty:")
+        diff_label.pack(pady=5)
+
+        current_diff = "Easy" if self.num_mines == 25 else ("Medium" if self.num_mines == 50 else "Hard")
+        self.diff_var = tk.StringVar(value=current_diff)
+        easy_rb = tk.Radiobutton(options_window, text="Easy (25 mines)", variable=self.diff_var, value="Easy")
+        easy_rb.pack()
+        medium_rb = tk.Radiobutton(options_window, text="Medium (50 mines)", variable=self.diff_var, value="Medium")
+        medium_rb.pack()
+        hard_rb = tk.Radiobutton(options_window, text="Hard (75 mines)", variable=self.diff_var, value="Hard")
+        hard_rb.pack()
+
+        # Buttons
+        button_frame = tk.Frame(options_window)
+        button_frame.pack(pady=10)
+        ok_button = tk.Button(button_frame, text="OK", command=lambda: self.ApplyOptions(options_window))
+        ok_button.pack(side=tk.LEFT, padx=5)
+        cancel_button = tk.Button(button_frame, text="Cancel", command=options_window.destroy)
+        cancel_button.pack(side=tk.LEFT, padx=5)
+
+        # Center the options window
+        options_window.update_idletasks()
+        width = options_window.winfo_reqwidth()
+        height = options_window.winfo_reqheight()
+        screen_width = options_window.winfo_screenwidth()
+        screen_height = options_window.winfo_screenheight()
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        options_window.geometry(f"{width}x{height}+{x}+{y}")
+
+    def ApplyOptions(self, window):
+        """
+        Apply the selected options and recreate the grid.
+        """
+        size = self.size_var.get()
+        diff = self.diff_var.get()
+        if size == "Normal":
+            self.grid_size = 15
+        else:
+            self.grid_size = 25
+        if diff == "Easy":
+            self.num_mines = 25
+        elif diff == "Medium":
+            self.num_mines = 50
+        else:
+            self.num_mines = 75
+        self.Master.title(f"tkMinesweeper - {self.grid_size}x{self.grid_size}")
+        window.destroy()
+        self.RecreateGrid()
+
+    def RecreateGrid(self):
+        """
+        Destroy the old grid and create a new one with updated settings.
+        """
+        self.GridFrame.destroy()
+        self.GridFrame = tk.Frame(self.Master)
+        self.GridFrame.pack()
+        self.Buttons = []
+        self.Mines = set()
+        self.Flags = set()
+        self.CreateGrid()
 
 if __name__ == "__main__":
     Root = tk.Tk()
