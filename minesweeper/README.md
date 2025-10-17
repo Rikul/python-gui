@@ -2,13 +2,6 @@
 
 This is a simple Minesweeper clone built with the Python standard library's `tkinter` toolkit.
 
-## Features
-- 10x10 grid with 10 hidden mines placed randomly each game
-- Recursive reveal of adjacent tiles when an empty space is uncovered
-- Visual icons: 💣 for mines and 🚩 for flags
-- Right-click to toggle flags without accidentally revealing tiles
-- Menu bar with options to start a new game or exit the application
-
 ## Requirements
 - Python 3.8+
 - Tkinter (bundled with most Python installations; on some Linux distributions you may need to install the `python3-tk` package)

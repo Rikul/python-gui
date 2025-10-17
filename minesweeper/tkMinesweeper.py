@@ -7,6 +7,8 @@ class Minesweeper:
         self.Master = Master
         self.grid_size = grid_size
         self.num_mines = num_mines
+        self.tile_color = "lightgrey"
+
         self.Master.title(f"tkMinesweeper - {self.grid_size}x{self.grid_size}")
         # Remove fixed geometry to allow automatic sizing
         self.Master.resizable(False, False)
@@ -30,7 +32,7 @@ class Minesweeper:
         self.MenuBar.add_cascade(label="Help", menu=HelpMenu)
 
         # Emoji icons for mines and flags
-        self.MineIcon = "💣"
+        self.MineIcon = "💥"    # "💣"
         self.FlagIcon = "🚩"
 
         # Create the grid
@@ -58,7 +60,7 @@ class Minesweeper:
             for Col in range(self.grid_size):
                 ButtonFont = font.Font(family="system", weight=font.BOLD, size=16)
                 Button = tk.Button(
-                    self.GridFrame, font=ButtonFont, bg='lightblue', width=button_width, height=button_height
+                    self.GridFrame, font=ButtonFont, bg=self.tile_color, width=button_width, height=button_height
                 )
                 Button.bind('<Button-1>', lambda event, r=Row, c=Col: self.OnLeftClick(r, c))
                 Button.bind('<Button-3>', lambda event, r=Row, c=Col: self.OnRightClick(r, c))
@@ -165,7 +167,7 @@ class Minesweeper:
             self.Flags.remove((Row, Col))
             if Button['state'] == tk.DISABLED:
                 return
-            Button.config(text='', bg='lightblue')
+            Button.config(text='', bg=self.tile_color)
         else:
             if Button['state'] == tk.DISABLED:
                 return
@@ -174,11 +176,17 @@ class Minesweeper:
 
     def ShowMine(self):
         """
-        Display all mines on the board.
+        Reveal all tiles on the board and disable all buttons.
         """
-        for Index in self.Mines:
-            Row, Col = divmod(Index, self.grid_size)
-            self.Buttons[Row][Col].config(text=self.MineIcon, bg='yellow', state=tk.DISABLED)
+        for row in range(self.grid_size):
+            for col in range(self.grid_size):
+                btn = self.Buttons[row][col]
+                index = row * self.grid_size + col
+                if index in self.Mines:
+                    btn.config(text=self.MineIcon, bg='lightyellow', state=tk.DISABLED)
+                else:
+                    count = self.CountAdjacentMines(row, col)
+                    btn.config(text=str(count) if count > 0 else '', bg='white', state=tk.DISABLED)
 
     def NewGame(self):
         """
@@ -188,7 +196,7 @@ class Minesweeper:
         self.Flags.clear()
         for Row in self.Buttons:
             for Button in Row:
-                Button.config(text='', bg='lightblue', state=tk.NORMAL)
+                Button.config(text='', bg=self.tile_color, state=tk.NORMAL)
         self.PlaceMines()
 
     def ShowAbout(self):
