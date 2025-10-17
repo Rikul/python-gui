@@ -1,7 +1,17 @@
 import sys
 import os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QToolBar, QLineEdit, QAction, QStyle, QToolButton, QMenu, QFileDialog
-from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings, QWebEngineProfile, QWebEngineDownloadItem
+from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QToolBar,
+    QLineEdit,
+    QAction,
+    QStyle,
+    QMenu,
+    QFileDialog,
+    QMessageBox,
+)
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings, QWebEngineProfile
 from PyQt5.QtCore import QUrl, Qt
 
 class Browser(QMainWindow):
@@ -62,23 +72,31 @@ class Browser(QMainWindow):
         self.url_bar.setStyleSheet("QLineEdit { font-size: 16px; width: 90%; padding: 5px; border-radius: 10px; }")
         toolbar.addWidget(self.url_bar)
 
-        # Menu button
-        menu_button = QToolButton()
-        menu_button.setText("\u22EE")
-        menu_button.setPopupMode(QToolButton.InstantPopup)
-        menu_button.setStyleSheet("QToolButton { font-size: 24px; padding: 5px}") 
+        # Menu bar
+        menu_bar = self.menuBar()
 
+        file_menu = menu_bar.addMenu("File")
+        save_action = QAction("Save Page", self)
+        save_action.triggered.connect(self.save_page)
+        file_menu.addAction(save_action)
 
-        menu = QMenu()
-        bookmarks_action = menu.addAction("Bookmarks")
-        bookmarks_action.triggered.connect(self.open_bookmarks)
-        
-        add_bookmark_action = menu.addAction("Add Bookmark")
+        exit_action = QAction("Exit", self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+
+        bookmarks_menu = menu_bar.addMenu("Bookmarks")
+        add_bookmark_action = QAction("Add Bookmark", self)
         add_bookmark_action.triggered.connect(self.add_bookmark)
+        bookmarks_menu.addAction(add_bookmark_action)
 
-        menu.addAction("Exit", self.close)
-        menu_button.setMenu(menu)
-        toolbar.addWidget(menu_button)
+        open_bookmarks_action = QAction("Open Bookmarks", self)
+        open_bookmarks_action.triggered.connect(self.open_bookmarks)
+        bookmarks_menu.addAction(open_bookmarks_action)
+
+        help_menu = menu_bar.addMenu("Help")
+        about_action = QAction("About", self)
+        about_action.triggered.connect(self.show_about)
+        help_menu.addAction(about_action)
 
         # Update URL bar when URL changes
         self.browser.urlChanged.connect(self.update_url_bar)
@@ -130,6 +148,14 @@ class Browser(QMainWindow):
             with open(self.bookmarks_file, 'w') as f:
                 f.write("<html><body><h2>Bookmarks</h2></body></html>")
         self.browser.setUrl(QUrl.fromLocalFile(os.path.abspath(self.bookmarks_file)))
+
+    def show_about(self):
+        """Display an about dialog for the browser."""
+        QMessageBox.about(
+            self,
+            "About",
+            f"{self.app_name}\nA simple web browser built with PyQt5.",
+        )
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
