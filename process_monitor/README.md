@@ -2,16 +2,6 @@
 
 A real-time system process monitor with CPU and memory usage graphs built with Python and tkinter.
 
-## Features
-- Real-time process list with CPU, memory, and thread information
-- Sort processes by PID, name, CPU usage, or memory usage
-- Search/filter processes by name
-- View detailed information about selected processes
-- Live CPU and memory usage graphs for the entire system
-- Per-process resource usage tracking
-- End/terminate processes
-- Automatic updates every 5 seconds
-
 ## Requirements
 - Python 3.8+
 - Tkinter (bundled with most Python installations)
