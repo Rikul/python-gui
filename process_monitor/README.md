@@ -1,10 +1,10 @@
 # Process Monitor
 
-A real-time system process monitor with CPU and memory usage graphs built with Python and tkinter.
+A real-time system process monitor with CPU and memory usage graphs built with Python and Qt 6.
 
 ## Requirements
 - Python 3.8+
-- Tkinter (bundled with most Python installations)
+- PyQt6
 
 To install required packages:
 

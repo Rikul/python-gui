@@ -1,23 +1,19 @@
-"""
-Process Monitor - Main entry point
+"""Process Monitor - Qt6 entry point."""
 
-This application provides a graphical interface for monitoring system and process resources.
-Each major component is separated into its own module for better organization:
-- data_collector.py: Background data collection for system and process metrics
-- chart_manager.py: Chart rendering and updates
-- process_monitor_gui.py: Main GUI application
-"""
+import sys
 
-import tkinter as tk
+from PyQt6 import QtWidgets
+
 from process_monitor_gui import ProcessMonitor
 
 
-def main():
-    """Main entry point for the Process Monitor application"""
-    root = tk.Tk()
-    app = ProcessMonitor(root)
-    root.mainloop()
+def main() -> int:
+    """Main entry point for the Process Monitor application."""
+    app = QtWidgets.QApplication(sys.argv)
+    window = ProcessMonitor()
+    window.show()
+    return app.exec()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

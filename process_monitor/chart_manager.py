@@ -65,10 +65,13 @@ class ChartManager:
         self.canvas_mem.draw_idle()
 
         # Update process chart
+        self.ax_process.clear()
         if selected_pid is not None:
-            self.ax_process.clear()
             self.ax_process.set_title(f"Process {selected_pid} Resource Usage")
-            max_val = max(max(self.process_cpu_data, default=0), max(self.process_mem_data, default=0))
+            max_val = max(
+                max(self.process_cpu_data, default=0),
+                max(self.process_mem_data, default=0)
+            )
             self.ax_process.set_ylim(0, max(max_val + 10, 10))
             self.ax_process.set_xlabel("Time (s)")
             self.ax_process.set_ylabel("Usage (%)")
@@ -76,4 +79,10 @@ class ChartManager:
             self.ax_process.plot(list(self.time_data), list(self.process_cpu_data), 'b-', label='CPU')
             self.ax_process.plot(list(self.time_data), list(self.process_mem_data), 'r-', label='Memory')
             self.ax_process.legend()
-            self.canvas_process.draw_idle()
+        else:
+            self.ax_process.set_title("Select a process to view resource usage")
+            self.ax_process.set_ylim(0, 10)
+            self.ax_process.set_xlabel("Time (s)")
+            self.ax_process.set_ylabel("Usage (%)")
+            self.ax_process.grid(True)
+        self.canvas_process.draw_idle()
