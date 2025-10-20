@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import sys
-import threading
 import time
-from queue import Queue
 
 import psutil
 from PyQt6 import QtCore, QtGui, QtWidgets
@@ -12,6 +10,35 @@ from matplotlib.figure import Figure
 
 from data_collector import DataCollector
 from chart_manager import ChartManager
+
+
+class WorkerSignals(QtCore.QObject):
+    """Signals available to worker tasks executed in the Qt thread pool."""
+
+    result = QtCore.pyqtSignal(object)
+    error = QtCore.pyqtSignal(str)
+    finished = QtCore.pyqtSignal()
+
+
+class ProcessListWorker(QtCore.QRunnable):
+    """Background task that fetches the current process list."""
+
+    def __init__(self, fn, *args, **kwargs):
+        super().__init__()
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+    def run(self) -> None:
+        try:
+            result = self.fn(*self.args, **self.kwargs)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.signals.error.emit(str(exc))
+        else:
+            self.signals.result.emit(result)
+        finally:
+            self.signals.finished.emit()
 
 
 class ProcessMonitor(QtWidgets.QMainWindow):
@@ -26,15 +53,15 @@ class ProcessMonitor(QtWidgets.QMainWindow):
         # Core application state
         self.data_collector = DataCollector()
         self.chart_manager = None
+        self.thread_pool = QtCore.QThreadPool(self)
         self.selected_pid = None
         self.running = True
         self.all_processes = []
-        self.process_list_queue: Queue = Queue()
+        self.latest_metrics = None
+        self._process_update_running = False
 
-        # Timers
-        self.update_timer = QtCore.QTimer(self)
-        self.update_timer.setInterval(100)
-        self.update_timer.timeout.connect(self._check_data_queue)
+        # Connect data collector signals
+        self.data_collector.data_ready.connect(self._handle_data_update)
 
         self.process_refresh_timer = QtCore.QTimer(self)
         self.process_refresh_timer.setInterval(5000)
@@ -45,7 +72,6 @@ class ProcessMonitor(QtWidgets.QMainWindow):
 
         # Start background components
         self.data_collector.start()
-        self.update_timer.start()
         self.process_refresh_timer.start()
 
         # Trigger initial updates
@@ -217,61 +243,61 @@ class ProcessMonitor(QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
     # Data handling
     # ------------------------------------------------------------------
-    def _check_data_queue(self) -> None:
+    def _handle_data_update(self, data: dict) -> None:
         if not self.running:
             return
 
-        try:
-            while not self.data_collector.data_queue.empty():
-                data = self.data_collector.data_queue.get_nowait()
-                self.chart_manager.add_data_point(
-                    data['system_cpu'],
-                    data['system_mem'],
-                    data['process_cpu'],
-                    data['process_mem'],
-                )
+        if self.chart_manager is None:
+            return
 
+        self.latest_metrics = data
+
+        try:
+            self.chart_manager.add_data_point(
+                data["system_cpu"],
+                data["system_mem"],
+                data["process_cpu"],
+                data["process_mem"],
+            )
             self.chart_manager.update_charts(self.selected_pid)
 
             mem = psutil.virtual_memory()
             disk = psutil.disk_usage('/')
             status_message = (
-                f"CPU: {self.data_collector.system_cpu:.1f}% | "
+                f"CPU: {data['system_cpu']:.1f}% | "
                 f"Memory: {mem.percent:.1f}% ({self.format_bytes(mem.used)}/"
                 f"{self.format_bytes(mem.total)}) | "
                 f"Disk: {disk.percent:.1f}%"
             )
             self.status.showMessage(status_message)
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover - defensive
             self.status.showMessage(f"Error updating charts: {exc}")
-
-        try:
-            while not self.process_list_queue.empty():
-                kind, payload = self.process_list_queue.get_nowait()
-                if kind == 'data':
-                    self._display_process_list(payload)
-                else:
-                    self.status.showMessage(f"Error collecting processes: {payload}")
-        except Exception as exc:
-            self.status.showMessage(f"Error processing queue: {exc}")
 
     def _schedule_process_list_update(self) -> None:
         if not self.running:
             return
 
-        thread = threading.Thread(target=self._update_process_list_async, daemon=True)
-        thread.start()
+        if self._process_update_running:
+            return
 
-    def _update_process_list_async(self) -> None:
-        try:
-            process_list = self.data_collector.collect_process_list()
-            self.process_list_queue.put(("data", process_list))
-        except Exception as exc:
-            self.process_list_queue.put(("error", exc))
+        worker = ProcessListWorker(self.data_collector.collect_process_list)
+        worker.signals.result.connect(self._handle_process_list_result)
+        worker.signals.error.connect(self._handle_process_list_error)
+        worker.signals.finished.connect(self._process_list_finished)
+        self._process_update_running = True
+        self.thread_pool.start(worker)
 
-    def _display_process_list(self, process_list: list[dict]) -> None:
+    def _handle_process_list_result(self, result: tuple) -> None:
+        process_list, process_cache = result
         self.all_processes = process_list
+        self.data_collector.update_process_cache(process_cache)
         self._apply_process_filter()
+
+    def _handle_process_list_error(self, message: str) -> None:
+        self.status.showMessage(f"Error collecting processes: {message}")
+
+    def _process_list_finished(self) -> None:
+        self._process_update_running = False
 
     def _apply_process_filter(self) -> None:
         process_list = list(self.all_processes)
@@ -350,7 +376,7 @@ class ProcessMonitor(QtWidgets.QMainWindow):
         self.chart_manager.reset_process_data()
 
         try:
-            proc = self.data_collector.processes.get(pid) or psutil.Process(pid)
+            proc = self.data_collector.get_process(pid) or psutil.Process(pid)
             if not proc.is_running():
                 raise psutil.NoSuchProcess(pid)
 
@@ -415,9 +441,9 @@ class ProcessMonitor(QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # type: ignore[name-defined]
         self.running = False
-        self.update_timer.stop()
         self.process_refresh_timer.stop()
         self.data_collector.stop()
+        self.thread_pool.waitForDone()
         super().closeEvent(event)
 
 
