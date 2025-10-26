@@ -1,4 +1,5 @@
 import os
+from urllib.parse import quote_plus
 from PyQt5.QtWidgets import (
     QMainWindow,
     QToolBar,
@@ -12,18 +13,34 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings, QWebEngineProfile
 from PyQt5.QtCore import QUrl, Qt
 from bookmark import BookmarkList
+from settings_dialog import SettingsDialog
+from settings_manager import (
+    BrowserSettings,
+    DEFAULT_SETTINGS,
+    SettingsError,
+    SettingsStore,
+)
 
 
 class Browser(QMainWindow):
 
     app_name = "My web browser"
     default_url = "https://www.google.com"
-
     def __init__(self):
         super().__init__()
 
         # Initialize bookmark list
         self.bookmark_list = BookmarkList('bookmarks.json')
+
+        # Load settings
+        self.settings_path = os.path.join(os.path.dirname(__file__), 'settings.json')
+        self.settings_store = SettingsStore(self.settings_path)
+        self.settings = self._load_settings()
+        self.home_page = self.settings.start_page
+        self.search_engine_template = self.settings.search_engine
+        self._navigating_with_search = False
+        self._manual_navigation = False
+        self.last_user_input = ''
 
         # Set up the main window
         self.setWindowTitle(self.app_name)
@@ -38,11 +55,15 @@ class Browser(QMainWindow):
 
         # Enable all cookies
         profile = QWebEngineProfile.defaultProfile()
+        self.default_user_agent = profile.httpUserAgent()
         profile.setPersistentCookiesPolicy(QWebEngineProfile.AllowPersistentCookies)
+        self.apply_user_agent(profile)
 
 
         # Load the default page
-        self.browser.setUrl(QUrl(self.default_url))
+        self.apply_default_font()
+        self.last_user_input = self.home_page
+        self.browser.setUrl(self._create_url(self.home_page))
 
         # Create a toolbar
         toolbar = QToolBar()
@@ -82,6 +103,10 @@ class Browser(QMainWindow):
         save_action.triggered.connect(self.save_page)
         file_menu.addAction(save_action)
 
+        settings_action = QAction("Settings", self)
+        settings_action.triggered.connect(self.open_settings_dialog)
+        file_menu.addAction(settings_action)
+
         exit_action = QAction("Exit", self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
@@ -108,6 +133,7 @@ class Browser(QMainWindow):
 
         # Update URL bar when URL changes
         self.browser.urlChanged.connect(self.update_url_bar)
+        self.browser.loadFinished.connect(self.handle_load_finished)
 
         # Context Menu for Right-Click
         self.browser.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -115,9 +141,15 @@ class Browser(QMainWindow):
 
     def navigate_to_url(self):
         """Navigate to the URL entered in the URL bar."""
-        url = self.url_bar.text()
+        raw_input = self.url_bar.text().strip()
+        if not raw_input:
+            raw_input = self.home_page
+        self.last_user_input = raw_input
+        url = raw_input
         if not url.startswith("http://") and not url.startswith("https://"):
             url = "http://" + url
+        self._navigating_with_search = False
+        self._manual_navigation = True
         self.browser.setUrl(QUrl(url))
 
     def update_url_bar(self, q):
@@ -170,6 +202,9 @@ class Browser(QMainWindow):
 
     def navigate_to_bookmark(self, url):
         """Navigate to a bookmarked URL."""
+        self.last_user_input = url
+        self._navigating_with_search = False
+        self._manual_navigation = False
         self.browser.setUrl(QUrl(url))
 
     def open_bookmarks(self):
@@ -179,6 +214,9 @@ class Browser(QMainWindow):
         temp_file = 'temp_bookmarks.html'
         with open(temp_file, 'w', encoding='utf-8') as f:
             f.write(html)
+        self.last_user_input = temp_file
+        self._navigating_with_search = False
+        self._manual_navigation = False
         self.browser.setUrl(QUrl.fromLocalFile(os.path.abspath(temp_file)))
 
     def show_about(self):
@@ -188,3 +226,89 @@ class Browser(QMainWindow):
             "About",
             f"{self.app_name}\nA simple web browser built with PyQt5.",
         )
+
+    def open_settings_dialog(self):
+        """Display the settings dialog."""
+        dialog = SettingsDialog(self.settings, self)
+        if dialog.exec_() == QDialog.Accepted:
+            updated_settings = dialog.get_settings()
+            if self._save_settings(updated_settings):
+                self.settings = updated_settings
+                profile = QWebEngineProfile.defaultProfile()
+                self.apply_user_agent(profile)
+                self.apply_default_font()
+                self.home_page = self.settings.start_page
+                self.search_engine_template = self.settings.search_engine
+                self._navigating_with_search = False
+                self.last_user_input = self.home_page
+                self.browser.setUrl(self._create_url(self.home_page))
+
+    def apply_user_agent(self, profile):
+        """Apply the user agent from settings."""
+        user_agent = self.settings.user_agent.strip()
+        if user_agent:
+            profile.setHttpUserAgent(user_agent)
+        else:
+            profile.setHttpUserAgent(self.default_user_agent)
+
+    def apply_default_font(self):
+        """Apply the default font setting to the browser."""
+        font_name = self.settings.default_font
+        web_settings = self.browser.settings()
+        web_settings.setFontFamily(QWebEngineSettings.StandardFont, font_name)
+        web_settings.setFontFamily(QWebEngineSettings.SerifFont, font_name)
+        web_settings.setFontFamily(QWebEngineSettings.SansSerifFont, font_name)
+        web_settings.setFontFamily(QWebEngineSettings.FixedFont, font_name)
+
+    def handle_load_finished(self, success):
+        """Handle page load failures and trigger search fallback."""
+        if success:
+            self._navigating_with_search = False
+            self._manual_navigation = False
+            return
+        if self._navigating_with_search:
+            return
+        if not self._manual_navigation:
+            return
+        query = self.last_user_input or self.url_bar.text()
+        template = self.search_engine_template or DEFAULT_SETTINGS['search_engine']
+        if '{query}' in template:
+            search_url = template.format(query=quote_plus(query))
+        else:
+            search_url = template + quote_plus(query)
+        self._navigating_with_search = True
+        self._manual_navigation = False
+        self.browser.setUrl(QUrl(search_url))
+
+    def _create_url(self, url):
+        """Ensure URLs include a scheme."""
+        if not url:
+            url = self.home_page or self.default_url
+        if not url.startswith("http://") and not url.startswith("https://"):
+            url = "http://" + url
+        return QUrl(url)
+
+    def _load_settings(self):
+        try:
+            return self.settings_store.load()
+        except SettingsError as exc:
+            QMessageBox.warning(
+                self,
+                "Settings Error",
+                f"Settings could not be loaded ({exc}). Default settings will be used.",
+            )
+            defaults = BrowserSettings()
+            self.settings_store.save(defaults)
+            return defaults
+
+    def _save_settings(self, settings: BrowserSettings):
+        try:
+            self.settings_store.save(settings)
+            return True
+        except SettingsError as exc:
+            QMessageBox.warning(
+                self,
+                "Settings Error",
+                f"Could not save settings: {exc}",
+            )
+            return False
