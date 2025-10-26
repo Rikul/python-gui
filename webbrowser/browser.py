@@ -1,14 +1,15 @@
 import os
 from urllib.parse import quote_plus
 from PyQt5.QtWidgets import (
-    QMainWindow,
-    QToolBar,
-    QLineEdit,
     QAction,
-    QStyle,
-    QMenu,
     QFileDialog,
+    QDialog,
+    QLineEdit,
+    QMainWindow,
+    QMenu,
     QMessageBox,
+    QStyle,
+    QToolBar,
 )
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings, QWebEngineProfile
 from PyQt5.QtCore import QUrl, Qt
