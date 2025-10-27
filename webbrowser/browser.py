@@ -1,6 +1,6 @@
 import os
 from urllib.parse import quote_plus
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import (
     QFileDialog,
     QDialog,
@@ -80,25 +80,25 @@ class Browser(QMainWindow):
         # Back button
         back_button = QAction("Back", self)
         back_button.triggered.connect(self.browser.back)
-        back_button.setIcon(self.style().standardIcon(QStyle.SP_ArrowBack))
+        back_button.setIcon(QIcon.fromTheme("arrow-back"))
         toolbar.addAction(back_button)
 
         # Forward button
         forward_button = QAction("Forward", self)
         forward_button.triggered.connect(self.browser.forward)
-        forward_button.setIcon(self.style().standardIcon(QStyle.SP_ArrowForward))
+        forward_button.setIcon(QIcon.fromTheme("arrow-forward"))
         toolbar.addAction(forward_button)
 
         # Home button
         home_button = QAction("Home", self)
         home_button.triggered.connect(self.navigate_to_home)
-        home_button.setIcon(self.style().standardIcon(QStyle.SP_ArrowUp))
+        home_button.setIcon(QIcon.fromTheme("go-home"))
         toolbar.addAction(home_button)
 
         # Reload button
         reload_button = QAction("Reload", self)
         reload_button.triggered.connect(self.browser.reload)
-        reload_button.setIcon(self.style().standardIcon(QStyle.SP_BrowserReload))
+        reload_button.setIcon(QIcon.fromTheme("reload"))
         toolbar.addAction(reload_button)
 
         # URL bar
@@ -148,7 +148,7 @@ class Browser(QMainWindow):
         self.browser.loadFinished.connect(self.handle_load_finished)
 
         # Context Menu for Right-Click
-        self.browser.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.browser.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.browser.customContextMenuRequested.connect(self.context_menu)
 
     def navigate_to_url(self):
@@ -285,7 +285,8 @@ class Browser(QMainWindow):
         script.setName("custom-font-script")
         script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
         script.setRunsOnSubFrames(True)
-        script.setWorldId(QWebEngineScript.WorldId.ApplicationWorld)
+        script.setWorldId(QWebEngineScript.ScriptWorldId.ApplicationWorld)
+
         self.browser.page().scripts().insert(script)
 
     def handle_load_finished(self, success):
