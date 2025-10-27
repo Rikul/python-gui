@@ -1,7 +1,7 @@
 import os
 from urllib.parse import quote_plus
-from PyQt5.QtWidgets import (
-    QAction,
+from PyQt6.QtGui import QAction
+from PyQt6.QtWidgets import (
     QFileDialog,
     QDialog,
     QLineEdit,
@@ -11,8 +11,9 @@ from PyQt5.QtWidgets import (
     QStyle,
     QToolBar,
 )
-from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings, QWebEngineProfile
-from PyQt5.QtCore import QUrl, Qt
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWebEngineCore import QWebEngineProfile, QWebEngineSettings, QWebEngineScript
+from PyQt6.QtCore import QUrl, Qt
 from bookmark import BookmarkList
 from settings_dialog import SettingsDialog
 from settings_manager import (
@@ -56,12 +57,12 @@ class Browser(QMainWindow):
         self.setCentralWidget(self.browser)
 
         # Enable JavaScript
-        self.browser.settings().setAttribute(QWebEngineSettings.JavascriptEnabled, True)
+        self.browser.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
 
         # Enable all cookies
         profile = QWebEngineProfile.defaultProfile()
         self.default_user_agent = profile.httpUserAgent()
-        profile.setPersistentCookiesPolicy(QWebEngineProfile.AllowPersistentCookies)
+        profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies)
         self.apply_user_agent(profile)
 
 
@@ -180,7 +181,7 @@ class Browser(QMainWindow):
         menu = QMenu()
         save_page_action = menu.addAction("Save Page")
         save_page_action.triggered.connect(self.save_page)
-        menu.exec_(self.browser.mapToGlobal(point))
+        menu.exec(self.browser.mapToGlobal(point))
 
     def save_page(self):
         """Save the current page to a file."""
@@ -239,16 +240,15 @@ class Browser(QMainWindow):
 
     def show_about(self):
         """Display an about dialog for the browser."""
-        QMessageBox.about(
-            self,
-            "About",
-            f"{self.app_name}\nA simple web browser built with PyQt5.",
-        )
+        about_dialog = QMessageBox(self)
+        about_dialog.setWindowTitle("About")
+        about_dialog.setText(f"{self.app_name}\nA simple web browser built with PyQt6.")
+        about_dialog.exec()
 
     def open_settings_dialog(self):
         """Display the settings dialog."""
         dialog = SettingsDialog(self.settings, self)
-        if dialog.exec_() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             updated_settings = dialog.get_settings()
             if self._save_settings(updated_settings):
                 self.settings = updated_settings
@@ -271,11 +271,22 @@ class Browser(QMainWindow):
     def apply_default_font(self):
         """Apply the default font setting to the browser."""
         font_name = self.settings.default_font
-        web_settings = self.browser.settings()
-        web_settings.setFontFamily(QWebEngineSettings.StandardFont, font_name)
-        web_settings.setFontFamily(QWebEngineSettings.SerifFont, font_name)
-        web_settings.setFontFamily(QWebEngineSettings.SansSerifFont, font_name)
-        web_settings.setFontFamily(QWebEngineSettings.FixedFont, font_name)
+        script_source = f"""
+        (function() {{
+            css = document.createElement('style');
+            css.type = 'text/css';
+            css.id = 'custom-font-style';
+            document.head.appendChild(css);
+            css.innerText = 'body {{ font-family: "{font_name}" !important; }}';
+        }})()
+        """
+        script = QWebEngineScript()
+        script.setSourceCode(script_source)
+        script.setName("custom-font-script")
+        script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
+        script.setRunsOnSubFrames(True)
+        script.setWorldId(QWebEngineScript.WorldId.ApplicationWorld)
+        self.browser.page().scripts().insert(script)
 
     def handle_load_finished(self, success):
         """Handle page load failures and trigger search fallback."""
