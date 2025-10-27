@@ -1,7 +1,7 @@
 """Dialog for editing browser settings."""
 
-from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import (
+from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFontComboBox,
@@ -38,7 +38,9 @@ class SettingsDialog(QDialog):
         self.user_agent_input = QLineEdit(settings.user_agent)
         layout.addWidget(self.user_agent_input)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
