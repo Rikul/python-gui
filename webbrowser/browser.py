@@ -22,19 +22,20 @@ from settings_manager import (
     SettingsStore,
 )
 
+from constants import APP_NAME, DEFAULT_URL, BOOKMARKS_FILE, SETTINGS_FILE
 
 class Browser(QMainWindow):
 
-    app_name = "My web browser"
-    default_url = "https://www.google.com"
+    app_name = APP_NAME
+    default_url = DEFAULT_URL
     def __init__(self):
         super().__init__()
 
         # Initialize bookmark list
-        self.bookmark_list = BookmarkList('bookmarks.json')
+        self.bookmark_list = BookmarkList(BOOKMARKS_FILE)
 
         # Load settings
-        self.settings_path = os.path.join(os.path.dirname(__file__), 'settings.json')
+        self.settings_path = os.path.join(os.path.dirname(__file__), SETTINGS_FILE)
         self.settings_store = SettingsStore(self.settings_path)
         self.settings = self._load_settings()
         self.home_page = self.settings.start_page
@@ -45,7 +46,10 @@ class Browser(QMainWindow):
 
         # Set up the main window
         self.setWindowTitle(self.app_name)
-        self.setGeometry(300, 100, 1200, 800)
+        #self.setGeometry(300, 100, 1200, 800)
+        
+        # Maximize window
+        self.showMaximized()
 
         # Create a QWebEngineView widget
         self.browser = QWebEngineView()
@@ -83,6 +87,12 @@ class Browser(QMainWindow):
         forward_button.triggered.connect(self.browser.forward)
         forward_button.setIcon(self.style().standardIcon(QStyle.SP_ArrowForward))
         toolbar.addAction(forward_button)
+
+        # Home button
+        home_button = QAction("Home", self)
+        home_button.triggered.connect(self.navigate_to_home)
+        home_button.setIcon(self.style().standardIcon(QStyle.SP_ArrowUp))
+        toolbar.addAction(home_button)
 
         # Reload button
         reload_button = QAction("Reload", self)
@@ -152,6 +162,13 @@ class Browser(QMainWindow):
         self._navigating_with_search = False
         self._manual_navigation = True
         self.browser.setUrl(QUrl(url))
+
+    def navigate_to_home(self):
+        """Navigate to the home page."""
+        self.last_user_input = self.home_page
+        self._navigating_with_search = False
+        self._manual_navigation = False
+        self.browser.setUrl(self._create_url(self.home_page))
 
     def update_url_bar(self, q):
         """Update the URL bar with the current URL."""
@@ -242,7 +259,6 @@ class Browser(QMainWindow):
                 self.search_engine_template = self.settings.search_engine
                 self._navigating_with_search = False
                 self.last_user_input = self.home_page
-                self.browser.setUrl(self._create_url(self.home_page))
 
     def apply_user_agent(self, profile):
         """Apply the user agent from settings."""
