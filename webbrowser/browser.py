@@ -58,6 +58,9 @@ class Browser(QMainWindow):
 
         # Enable JavaScript
         self.browser.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+        
+        # Enable Scroll Bars
+        self.browser.settings().setAttribute(QWebEngineSettings.WebAttribute.ShowScrollBars, True)  
 
         # Enable all cookies
         profile = QWebEngineProfile.defaultProfile()
@@ -158,10 +161,13 @@ class Browser(QMainWindow):
             raw_input = self.home_page
         self.last_user_input = raw_input
         url = raw_input
+
         if not url.startswith("http://") and not url.startswith("https://"):
             url = "http://" + url
+
         self._navigating_with_search = False
         self._manual_navigation = True
+
         self.browser.setUrl(QUrl(url))
 
     def navigate_to_home(self):
@@ -273,11 +279,22 @@ class Browser(QMainWindow):
         font_name = self.settings.default_font
         script_source = f"""
         (function() {{
+            var existingStyle = document.getElementById('custom-font-style');
+            if (existingStyle) {{
+                existingStyle.remove();
+            }}
             css = document.createElement('style');
             css.type = 'text/css';
             css.id = 'custom-font-style';
             document.head.appendChild(css);
-            css.innerText = 'body {{ font-family: "{font_name}" !important; }}';
+            css.innerText = `body {{ 
+                font-family: "{font_name}" !important; 
+                font-size: medium !important;
+                -webkit-font-smoothing: antialiased !important;
+                -moz-osx-font-smoothing: grayscale !important;
+                text-rendering: optimizeLegibility !important;
+                font-smooth: always !important;
+            }}`;
         }})()
         """
         script = QWebEngineScript()

@@ -1,10 +1,12 @@
 """Dialog for editing browser settings."""
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFontComboBox,
+    QFormLayout,
     QLineEdit,
     QLabel,
     QVBoxLayout,
@@ -19,24 +21,43 @@ class SettingsDialog(QDialog):
     def __init__(self, settings: BrowserSettings, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Settings")
-        layout = QVBoxLayout(self)
+        self.setFixedSize(600, 250)
 
-        layout.addWidget(QLabel("Start Page:"))
+        form_layout = QFormLayout()
+        form_layout.setVerticalSpacing(15)
+        form_layout.setHorizontalSpacing(20)
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        form_layout.setFormAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+
         self.start_page_input = QLineEdit(settings.start_page)
-        layout.addWidget(self.start_page_input)
+        self.start_page_input.setPlaceholderText("e.g., https://www.reddit.com")
+        self.start_page_input.setBaseSize(400, 0)
+        form_layout.addRow(QLabel("Start Page:"), self.start_page_input)
 
-        layout.addWidget(QLabel("Default Font:"))
         self.font_combo = QFontComboBox()
         self.font_combo.setCurrentFont(QFont(settings.default_font))
-        layout.addWidget(self.font_combo)
+        form_layout.addRow(QLabel("Default Font:"), self.font_combo)
 
-        layout.addWidget(QLabel("Search Engine URL (use {query} as placeholder):"))
         self.search_engine_input = QLineEdit(settings.search_engine)
-        layout.addWidget(self.search_engine_input)
+        self.search_engine_input.setPlaceholderText(
+            "e.g., https://www.google.com/search?q={query}"
+        )
+        self.search_engine_input.setBaseSize(400, 0)
+        form_layout.addRow(
+            QLabel("Search Engine URL\n(use {query} as placeholder):"),
+            self.search_engine_input,
+        )
 
-        layout.addWidget(QLabel("User Agent (leave blank for default):"))
         self.user_agent_input = QLineEdit(settings.user_agent)
-        layout.addWidget(self.user_agent_input)
+        self.user_agent_input.setPlaceholderText("e.g., Mozilla/5.0 ...")
+        self.user_agent_input.setBaseSize(400, 0)
+
+        form_layout.addRow(
+            QLabel("User Agent\n(leave blank for default):"), self.user_agent_input
+        )
+
+        layout = QVBoxLayout(self)
+        layout.addLayout(form_layout)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
