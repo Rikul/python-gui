@@ -1,6 +1,6 @@
 import os
 from urllib.parse import quote_plus
-from PyQt6.QtGui import QAction, QIcon
+from PyQt6.QtGui import QAction, QIcon, QFont
 from PyQt6.QtWidgets import (
     QFileDialog,
     QDialog,
@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QToolBar,
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWebEngineCore import QWebEngineProfile, QWebEngineSettings, QWebEngineScript
+from PyQt6.QtWebEngineCore import QWebEngineProfile, QWebEngineSettings, QWebEngineScript, QWebEnginePage
 from PyQt6.QtCore import QUrl, Qt
 from bookmark import BookmarkList
 from settings_dialog import SettingsDialog
@@ -276,6 +276,10 @@ class Browser(QMainWindow):
 
     def apply_default_font(self):
         """Apply the default font setting to the browser."""
+        
+        font = QFont(self.settings.default_font)
+        self.browser.setFont(font)
+
         font_name = self.settings.default_font
         script_source = f"""
         (function() {{
@@ -295,7 +299,7 @@ class Browser(QMainWindow):
                 text-rendering: optimizeLegibility !important;
                 font-smooth: always !important;
             }}`;
-        }})()
+        }})();
         """
         script = QWebEngineScript()
         script.setSourceCode(script_source)
@@ -303,8 +307,16 @@ class Browser(QMainWindow):
         script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
         script.setRunsOnSubFrames(True)
         script.setWorldId(QWebEngineScript.ScriptWorldId.ApplicationWorld)
-
         self.browser.page().scripts().insert(script)
+                
+        # Apply immediately to the currently loaded page (without waiting for navigation)
+        try:
+            self.browser.page().runJavaScript(script_source)
+        except Exception:
+            self.browser.page().javaScriptConsoleMessage(QWebEnginePage.JavaScriptConsoleMessageLevel.ErrorMessageLevel, "Error running JS"  )    
+
+        self.browser.page().javaScriptAlert(QUrl("localhost"), "Font applied."   )
+
 
     def handle_load_finished(self, success):
         """Handle page load failures and trigger search fallback."""

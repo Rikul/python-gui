@@ -1,6 +1,6 @@
 import os
 from urllib.parse import quote_plus
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QIcon, QFont
 from PySide6.QtWidgets import (
     QFileDialog,
     QDialog,
@@ -46,7 +46,6 @@ class Browser(QMainWindow):
 
         # Set up the main window
         self.setWindowTitle(self.app_name)
-        #self.setGeometry(300, 100, 1200, 800)
         
         # Maximize window
         self.showMaximized()
@@ -61,17 +60,24 @@ class Browser(QMainWindow):
         # Enable Scroll Bars
         self.browser.settings().setAttribute(QWebEngineSettings.WebAttribute.ShowScrollBars, True)  
 
+        self.browser.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
+
+        self.browser.settings().setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
+
+        self.browser.settings().setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
+
         # Enable all cookies
         profile = QWebEngineProfile.defaultProfile()
         self.default_user_agent = profile.httpUserAgent()
         profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies)
         self.apply_user_agent(profile)
 
-
-        # Load the default page
+        # Apply font settings before loading the initial page
         self.apply_default_font()
-        self.last_user_input = self.home_page
-        self.browser.setUrl(self._create_url(self.home_page))
+
+        
+        # Load the default page
+        self.browser.setUrl(QUrl("about:blank"))
 
         # Create a toolbar
         toolbar = QToolBar()
@@ -109,6 +115,7 @@ class Browser(QMainWindow):
         self.url_bar.setStyleSheet("QLineEdit { font-size: 16px; width: 90%; padding: 5px; border-radius: 10px; }")
         toolbar.addWidget(self.url_bar)
 
+
         # Menu bar
         menu_bar = self.menuBar()
 
@@ -138,7 +145,7 @@ class Browser(QMainWindow):
         self.bookmarks_menu.addSeparator()
 
         # Populate bookmarks menu when shown
-        self.bookmarks_menu.aboutToShow.connect(self.populate_bookmarks_menu)
+        self.populate_bookmarks_menu()
 
         help_menu = menu_bar.addMenu("Help")
         about_action = QAction("About", self)
@@ -152,6 +159,13 @@ class Browser(QMainWindow):
         # Context Menu for Right-Click
         self.browser.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.browser.customContextMenuRequested.connect(self.context_menu)
+
+        # After QMainWindow is set up, navigate to home page
+        self.show()
+
+        self.browser.setUrl(self._create_url(self.home_page))
+        self.last_user_input = self.home_page
+
 
     def navigate_to_url(self):
         """Navigate to the URL entered in the URL bar."""
@@ -208,6 +222,8 @@ class Browser(QMainWindow):
         else:
             QMessageBox.warning(self, "Duplicate Bookmark", f"This URL is already bookmarked.")
 
+        self.populate_bookmarks_menu()
+
     def populate_bookmarks_menu(self):
         """Populate the bookmarks menu with bookmark entries."""
         # Get all actions in the menu
@@ -221,7 +237,8 @@ class Browser(QMainWindow):
         bookmarks = self.bookmark_list.get_all()
         for bookmark in bookmarks:
             action = QAction(bookmark.title, self)
-            action.triggered.connect(lambda checked, url=bookmark.url: self.navigate_to_bookmark(url))
+            action.triggered.connect(lambda checked=False, url=bookmark.url: self.navigate_to_bookmark(url))
+
             self.bookmarks_menu.addAction(action)
 
     def navigate_to_bookmark(self, url):
@@ -229,6 +246,7 @@ class Browser(QMainWindow):
         self.last_user_input = url
         self._navigating_with_search = False
         self._manual_navigation = False
+
         self.browser.setUrl(QUrl(url))
 
     def open_bookmarks(self):
@@ -276,8 +294,9 @@ class Browser(QMainWindow):
     def apply_default_font(self):
         """Apply the default font setting to the browser."""
         font_name = self.settings.default_font
+        font = QFont(font_name)
+
         script_source = f"""
-        (function() {{
             var existingStyle = document.getElementById('custom-font-style');
             if (existingStyle) {{
                 existingStyle.remove();
@@ -294,17 +313,27 @@ class Browser(QMainWindow):
                 text-rendering: optimizeLegibility !important;
                 font-smooth: always !important;
             }}`;
-        }})()
         """
+        
         script = QWebEngineScript()
         script.setSourceCode(script_source)
         script.setName("custom-font-script")
         script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
         script.setRunsOnSubFrames(True)
-        script.setWorldId(QWebEngineScript.ScriptWorldId.ApplicationWorld)
+        script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
 
         self.browser.page().scripts().insert(script)
+        
+        self.browser.settings().setFontFamily(QWebEngineSettings.FontFamily.StandardFont, font.family())
+        self.browser.settings().setFontFamily(QWebEngineSettings.FontFamily.FixedFont, font.family())
+        self.browser.settings().setFontFamily(QWebEngineSettings.FontFamily.SerifFont, font.family())
+        self.browser.settings().setFontFamily(QWebEngineSettings.FontFamily.SansSerifFont, font.family())
+        self.browser.settings().setFontFamily(QWebEngineSettings.FontFamily.CursiveFont, font.family())
+        self.browser.settings().setFontFamily(QWebEngineSettings.FontFamily.FantasyFont, font.family())
+        self.browser.settings().setFontSize(QWebEngineSettings.FontSize.DefaultFontSize, font.pointSize())
 
+        self.browser.page().runJavaScript(script_source)
+        
     def handle_load_finished(self, success):
         """Handle page load failures and trigger search fallback."""
         if success:
