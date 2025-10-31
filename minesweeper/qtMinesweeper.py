@@ -166,16 +166,20 @@ class Minesweeper(QMainWindow):
         """Handle the right-click event to mark a button."""
         button = self.buttons[row][col]
         
+        # Only allow right-click on enabled buttons or buttons with flags
         if not button.isEnabled() and button.text() != self.flag_icon:
             return
             
         if (row, col) in self.flags:
+            # Removing a flag
             self.flags.remove((row, col))
+            # Don't update button appearance if it's already revealed
             if not button.isEnabled():
                 return
             button.setText('')
             button.setStyleSheet(f"background-color: {self.tile_color};")
         else:
+            # Adding a flag - only allowed on enabled (unrevealed) buttons
             if not button.isEnabled():
                 return
             self.flags.add((row, col))
