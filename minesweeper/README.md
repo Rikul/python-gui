@@ -1,21 +1,30 @@
-# Tkinter Minesweeper
+# Minesweeper
 
-This is a simple Minesweeper clone built with the Python standard library's `tkinter` toolkit.
+This folder contains two implementations of the classic Minesweeper game:
+- `tkMinesweeper.py` - Built with Python's standard library `tkinter` toolkit
+- `qtMinesweeper.py` - Built with `PySide6` (Qt for Python)
 
 ## Requirements
 - Python 3.8+
-- Tkinter (bundled with most Python installations; on some Linux distributions you may need to install the `python3-tk` package)
+- For tkMinesweeper: Tkinter (bundled with most Python installations; on some Linux distributions you may need to install the `python3-tk` package)
+- For qtMinesweeper: PySide6
 
-To install Tkinter via `pip`, you can use the `tk` package:
+To install all dependencies via `pip`:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Running the game
+## Running the games
 
+### Tkinter version:
 ```bash
 python tkMinesweeper.py
 ```
 
-Use left-click to reveal tiles and right-click to toggle flags. Revealing a mine ends the game and automatically starts a new one after a brief pause.
+### PySide6 version:
+```bash
+python qtMinesweeper.py
+```
+
+Both versions support left-click to reveal tiles and right-click to toggle flags. Revealing a mine ends the game and automatically starts a new one after a brief pause.
