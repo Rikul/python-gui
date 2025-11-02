@@ -86,7 +86,7 @@ class Minesweeper(QMainWindow):
                 button.setFixedSize(button_width, button_height)
                 
                 # Use lambda with default arguments to capture current row and col
-                button.clicked.connect(lambda checked, r=row, c=col: self.on_left_click(r, c))
+                button.clicked.connect(lambda checked=False, r=row, c=col: self.on_left_click(r, c))
                 button.setContextMenuPolicy(Qt.CustomContextMenu)
                 button.customContextMenuRequested.connect(
                     lambda pos, r=row, c=col: self.on_right_click(r, c)
