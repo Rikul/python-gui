@@ -10,6 +10,8 @@ DEFAULT_SETTINGS = {
     "default_font": "Times New Roman",
     "search_engine": "https://www.google.com/search?q={query}",
     "user_agent": "",
+    "color_scheme": "System",
+    "downloads_directory": "",
 }
 
 
@@ -25,6 +27,8 @@ class BrowserSettings:
     default_font: str = DEFAULT_SETTINGS["default_font"]
     search_engine: str = DEFAULT_SETTINGS["search_engine"]
     user_agent: str = DEFAULT_SETTINGS["user_agent"]
+    color_scheme: str = DEFAULT_SETTINGS["color_scheme"]
+    downloads_directory: str = DEFAULT_SETTINGS["downloads_directory"]
 
     @classmethod
     def from_dict(cls, values: Dict[str, str]) -> "BrowserSettings":
@@ -38,6 +42,8 @@ class BrowserSettings:
             "default_font": self.default_font,
             "search_engine": self.search_engine,
             "user_agent": self.user_agent,
+            "color_scheme": self.color_scheme,
+            "downloads_directory": self.downloads_directory,
         }
 
 

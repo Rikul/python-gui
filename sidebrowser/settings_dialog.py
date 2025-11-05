@@ -3,6 +3,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFontComboBox,
@@ -24,7 +25,7 @@ class SettingsDialog(QDialog):
         self.setFixedSize(600, 250)
 
         form_layout = QFormLayout()
-        form_layout.setVerticalSpacing(15)
+        form_layout.setVerticalSpacing(8)
         form_layout.setHorizontalSpacing(20)
         form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         form_layout.setFormAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
@@ -44,7 +45,7 @@ class SettingsDialog(QDialog):
         )
         self.search_engine_input.setBaseSize(400, 0)
         form_layout.addRow(
-            QLabel("Search Engine URL\n(use {query} as placeholder):"),
+            QLabel("Search Engine (use {query}):"),
             self.search_engine_input,
         )
 
@@ -53,8 +54,18 @@ class SettingsDialog(QDialog):
         self.user_agent_input.setBaseSize(400, 0)
 
         form_layout.addRow(
-            QLabel("User Agent\n(leave blank for default):"), self.user_agent_input
+            QLabel("User Agent (blank for default):"), self.user_agent_input
         )
+
+        self.color_scheme_combo = QComboBox()
+        self.color_scheme_combo.addItems(["System", "Light", "Dark"])
+        self.color_scheme_combo.setCurrentText(settings.color_scheme)
+        form_layout.addRow(QLabel("Color Scheme:"), self.color_scheme_combo)
+
+        self.downloads_directory_input = QLineEdit(settings.downloads_directory)
+        self.downloads_directory_input.setPlaceholderText("e.g., /home/user/Downloads")
+        self.downloads_directory_input.setBaseSize(400, 0)
+        form_layout.addRow(QLabel("Downloads Directory:"), self.downloads_directory_input)
 
         layout = QVBoxLayout(self)
         layout.addLayout(form_layout)
@@ -75,10 +86,14 @@ class SettingsDialog(QDialog):
             self.search_engine_input.text().strip() or DEFAULT_SETTINGS["search_engine"]
         )
         user_agent = self.user_agent_input.text().strip()
+        color_scheme = self.color_scheme_combo.currentText()
+        downloads_directory = self.downloads_directory_input.text().strip()
 
         return BrowserSettings(
             start_page=start_page,
             default_font=default_font,
             search_engine=search_engine,
             user_agent=user_agent,
+            color_scheme=color_scheme,
+            downloads_directory=downloads_directory,
         )
