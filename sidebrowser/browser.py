@@ -2,6 +2,7 @@ import os
 from urllib.parse import quote_plus
 from PySide6.QtGui import QAction, QIcon, QFont
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QDialog,
     QLineEdit,
@@ -154,6 +155,7 @@ class Browser(QMainWindow):
 
         # Update URL bar when URL changes
         self.browser.urlChanged.connect(self.update_url_bar)
+        self.browser.loadStarted.connect(self.handle_load_started)
         self.browser.loadFinished.connect(self.handle_load_finished)
 
         # Context Menu for Right-Click
@@ -173,6 +175,11 @@ class Browser(QMainWindow):
         if not raw_input:
             raw_input = self.home_page
         self.last_user_input = raw_input
+
+        if self._should_treat_as_search(raw_input):
+            self._perform_search(raw_input)
+            return
+
         url = raw_input
 
         if not url.startswith("http://") and not url.startswith("https://"):
@@ -333,9 +340,16 @@ class Browser(QMainWindow):
         self.browser.settings().setFontSize(QWebEngineSettings.FontSize.DefaultFontSize, font.pointSize())
 
         self.browser.page().runJavaScript(script_source)
-        
+
+    def handle_load_started(self):
+        """Show wait cursor when page starts loading."""
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+
     def handle_load_finished(self, success):
         """Handle page load failures and trigger search fallback."""
+        # Restore normal cursor when page finishes loading
+        QApplication.restoreOverrideCursor()
+
         if success:
             self._navigating_with_search = False
             self._manual_navigation = False
@@ -345,14 +359,31 @@ class Browser(QMainWindow):
         if not self._manual_navigation:
             return
         query = self.last_user_input or self.url_bar.text()
-        template = self.search_engine_template or DEFAULT_SETTINGS['search_engine']
-        if '{query}' in template:
-            search_url = template.format(query=quote_plus(query))
+        self._perform_search(query)
+
+    def _should_treat_as_search(self, raw_input: str) -> bool:
+        """Determine whether the raw input should trigger a search instead of direct navigation."""
+        if not raw_input:
+            return False
+        if raw_input.startswith(("http://", "https://")):
+            return False
+        return " " in raw_input
+
+    def _build_search_url(self, query: str) -> QUrl:
+        """Build the QUrl for the configured search engine."""
+        template = self.search_engine_template or DEFAULT_SETTINGS["search_engine"]
+        encoded_query = quote_plus(query)
+        if "{query}" in template:
+            search_url = template.format(query=encoded_query)
         else:
-            search_url = template + quote_plus(query)
+            search_url = template + encoded_query
+        return QUrl(search_url)
+
+    def _perform_search(self, query: str):
+        """Navigate to the search results for the provided query."""
         self._navigating_with_search = True
         self._manual_navigation = False
-        self.browser.setUrl(QUrl(search_url))
+        self.browser.setUrl(self._build_search_url(query))
 
     def _create_url(self, url):
         """Ensure URLs include a scheme."""
