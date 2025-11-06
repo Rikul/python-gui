@@ -5,14 +5,21 @@ from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QDialog,
+    QDockWidget,
     QLineEdit,
     QMainWindow,
     QMenu,
     QMessageBox,
+    QPlainTextEdit,
     QToolBar,
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEngineSettings, QWebEngineScript
+from PySide6.QtWebEngineCore import (
+    QWebEnginePage,
+    QWebEngineProfile,
+    QWebEngineSettings,
+    QWebEngineScript,
+)
 from PySide6.QtCore import QUrl, Qt
 from bookmark import BookmarkList
 from settings_dialog import SettingsDialog
@@ -24,6 +31,51 @@ from settings_manager import (
 )
 
 from constants import APP_NAME, DEFAULT_URL, BOOKMARKS_FILE, SETTINGS_FILE
+
+
+class ConsoleDock(QDockWidget):
+    """Dock widget that displays JavaScript console output."""
+
+    _LEVEL_LABELS = {
+        QWebEnginePage.JavaScriptConsoleMessageLevel.InfoMessageLevel: "INFO",
+        QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel: "WARN",
+        QWebEnginePage.JavaScriptConsoleMessageLevel.ErrorMessageLevel: "ERROR",
+    }
+
+    def __init__(self, parent=None):
+        super().__init__("Console", parent)
+        self.setObjectName("ConsoleDock")
+        self.setAllowedAreas(
+            Qt.DockWidgetArea.BottomDockWidgetArea | Qt.DockWidgetArea.TopDockWidgetArea
+        )
+
+        self._output = QPlainTextEdit(self)
+        self._output.setReadOnly(True)
+        self._output.setMaximumBlockCount(1000)
+        self.setWidget(self._output)
+
+    def append_message(self, level, message, line_number, source_name):
+        """Append a formatted log entry to the console view."""
+        level_label = self._LEVEL_LABELS.get(level, "INFO")
+        details = []
+        if source_name:
+            details.append(source_name)
+        if line_number >= 0:
+            details.append(f"line {line_number}")
+        suffix = f" ({', '.join(details)})" if details else ""
+        self._output.appendPlainText(f"[{level_label}] {message}{suffix}")
+
+
+class ConsoleLoggingWebEnginePage(QWebEnginePage):
+    """Custom WebEnginePage that forwards JavaScript console messages."""
+
+    def __init__(self, profile, log_callback, parent=None):
+        super().__init__(profile, parent)
+        self._log_callback = log_callback
+
+    def javaScriptConsoleMessage(self, level, message, line_number, source_id):
+        self._log_callback(level, message, line_number, source_id)
+        super().javaScriptConsoleMessage(level, message, line_number, source_id)
 
 class Browser(QMainWindow):
 
@@ -51,9 +103,23 @@ class Browser(QMainWindow):
         # Maximize window
         self.showMaximized()
 
-        # Create a QWebEngineView widget
+        # Create a QWebEngineView widget with console logging support
         self.browser = QWebEngineView()
+        logging_page = ConsoleLoggingWebEnginePage(
+            QWebEngineProfile.defaultProfile(),
+            self._append_console_message,
+            self.browser,
+        )
+        self.browser.setPage(logging_page)
         self.setCentralWidget(self.browser)
+
+        # Console dock for JavaScript log output
+        self.console_dock = ConsoleDock(self)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.console_dock)
+        self.console_dock.hide()
+        self.console_action = self.console_dock.toggleViewAction()
+        self.console_action.setText("Console Log")
+        self.console_action.setShortcut("F12")
 
         # Enable JavaScript
         self.browser.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
@@ -72,6 +138,9 @@ class Browser(QMainWindow):
         self.default_user_agent = profile.httpUserAgent()
         profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies)
         self.apply_user_agent(profile)
+
+        # Connect download handler
+        profile.downloadRequested.connect(self.on_download_requested)
 
         # Apply font settings before loading the initial page
         self.apply_default_font()
@@ -132,6 +201,10 @@ class Browser(QMainWindow):
         exit_action = QAction("Exit", self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        view_menu = menu_bar.addMenu("View")
+        self.console_action.setStatusTip("Show or hide the JavaScript console log")
+        view_menu.addAction(self.console_action)
 
         self.bookmarks_menu = menu_bar.addMenu("Bookmarks")
         add_bookmark_action = QAction("Add Bookmark", self)
@@ -219,6 +292,52 @@ class Browser(QMainWindow):
         """Write the HTML content to a file."""
         with open(file_name, 'w', encoding='utf-8') as f:
             f.write(html)
+
+    def on_download_requested(self, download):
+        """Handle download requests."""
+        # Get the suggested file name from the download
+        suggested_name = download.downloadFileName()
+
+        # Determine the download path
+        downloads_dir = self.settings.downloads_directory.strip()
+
+        if downloads_dir and os.path.isdir(downloads_dir):
+            # Use the configured downloads directory
+            download_path = os.path.join(downloads_dir, suggested_name)
+        else:
+            # Prompt the user to choose a location
+            download_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save File",
+                suggested_name,
+                "All Files (*)"
+            )
+
+            if not download_path:
+                # User cancelled the download
+                return
+
+        # Set the download path and accept the download
+        download.setDownloadFileName(download_path)
+        download.accept()
+
+        # Show a message when download starts
+        QMessageBox.information(
+            self,
+            "Download Started",
+            f"Downloading '{suggested_name}' to:\n{download_path}"
+        )
+
+        # Connect to download finished signal
+        download.finished.connect(lambda: self.on_download_finished(download_path))
+
+    def on_download_finished(self, download_path):
+        """Handle download completion."""
+        QMessageBox.information(
+            self,
+            "Download Complete",
+            f"Download completed:\n{download_path}"
+        )
 
     def add_bookmark(self):
         """Add the current URL to the bookmarks."""
@@ -360,6 +479,11 @@ class Browser(QMainWindow):
             return
         query = self.last_user_input or self.url_bar.text()
         self._perform_search(query)
+
+    def _append_console_message(self, level, message, line_number, source_id):
+        """Forward JavaScript console output to the console dock."""
+        if self.console_dock:
+            self.console_dock.append_message(level, message, line_number, source_id)
 
     def _should_treat_as_search(self, raw_input: str) -> bool:
         """Determine whether the raw input should trigger a search instead of direct navigation."""
