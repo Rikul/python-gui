@@ -64,6 +64,25 @@ A single-player Pong game built with Pygame.
 python pong/pong.py
 ```
 
+### qtJSONlint
+
+A JSON formatter and validator built with PySide6. This application allows you to paste or open JSON files, format them in regular or compact mode, customize formatting options, and see detailed error messages for invalid JSON.
+
+**Features:**
+- Paste JSON directly or open from a file
+- Format in regular (indented) or compact mode
+- Customize indent size (0-10 spaces)
+- Sort keys alphabetically
+- Ensure ASCII output option
+- Display detailed parsing errors with line and column numbers
+- Save formatted output to a file
+
+**To run:**
+
+```bash
+python qtJSONlint/qtJSONlint.py
+```
+
 ### Process Monitor
 
 A real-time system process monitor with CPU and memory usage graphs built with Python and Qt 6.
