@@ -173,6 +173,32 @@ class JSONLintWindow(QMainWindow):
                 self.error_text.clear()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to open file:\n{str(e)}")
+
+        # If it has json decode error, show in error box
+        input_json = self.json_text.toPlainText().strip()
+    
+        if not input_json:
+            self.error_text.setPlainText("Error: No input provided")
+            self.statusBar().showMessage("Error: No input")
+            return
+            
+        try:
+            # Parse the JSON
+            json.loads(input_json)
+
+        except json.JSONDecodeError as e:
+            error_msg = f"JSON Decode Error:\n"
+            error_msg += f"  Message: {e.msg}\n"
+            error_msg += f"  Line: {e.lineno}, Column: {e.colno}\n"
+            error_msg += f"  Position: {e.pos}"
+            self.error_text.setPlainText(error_msg)
+            self.statusBar().showMessage("Error: Invalid JSON")
+            
+        except Exception as e:
+            error_msg = f"Error: {type(e).__name__}\n{str(e)}"
+            self.error_text.setPlainText(error_msg)
+            self.statusBar().showMessage("Error occurred")
+
                 
     def save_file(self):
         """Save the formatted JSON output to a file."""
