@@ -13,6 +13,7 @@ class JSONLintWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("qtJSONlint - JSON Formatter and Validator")
         self.resize(1000, 700)
+        self.showMaximized()
         
         # Create the menu bar
         self.create_menu_bar()
@@ -115,7 +116,7 @@ class JSONLintWindow(QMainWindow):
         
     def get_monospace_font(self):
         """Return a monospace font."""
-        return QFont("Monospace", 12)
+        return QFont("Courier New", 12)
     
     def create_menu_bar(self):
         """Create the menu bar."""
@@ -296,6 +297,7 @@ class JSONLintWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     window = JSONLintWindow()
+    app.setFont(window.get_monospace_font())
     window.show()
     sys.exit(app.exec())
 
